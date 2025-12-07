@@ -7,7 +7,9 @@ import org.testng.annotations.Test;
 import java.util.*;
 
 import static io.restassured.RestAssured.given;
+import static io.restassured.RestAssured.requestSpecification;
 import static org.hamcrest.Matchers.*;
+import static specifications.Specification.requestSpecification;
 
 public class APITests {
 
@@ -15,9 +17,9 @@ public class APITests {
     public void testUniqueNames() {
         List<String> firstNames =
                 given()
-                        .header("x-api-key", "reqres_9a5b3ef3548d452894fa0fe899501528")
+                        .spec(requestSpecification())
                         .when()
-                        .get("https://reqres.in/api/users?page=2")
+                        .get("/users?page=2")
                         .then()
                         .log().all()
                         .statusCode(200)
@@ -42,6 +44,52 @@ public class APITests {
     public void testSuccessfulLogin() {
         Map<String, String> requestData = new HashMap<>();
         requestData.put( "email", "eve.holt@reqres.in");
-        requestData
+        requestData.put("password" , "cityslicka");
+
+        String token = given()
+                .spec(requestSpecification())
+                .body(requestData)
+                .when()
+                .post("/login")
+                .then()
+                .log().all()
+                .statusCode(200)
+                .extract()
+                .body()
+                .jsonPath()
+                .getString("token");
+
+        System.out.println(token);
+
+        Assert.assertNotNull(
+                token,
+                "Ошибка авторизации, получен пустой токен"
+                );
+    }
+
+    @Test
+    public void testUnsuccessfulLogin() {
+        Map<String, String> requestData = new HashMap<>();
+        requestData.put( "email", "eve.holt@reqres.in");
+
+        String error = given()
+                .spec(requestSpecification())
+                .body(requestData)
+                .when()
+                .post("/login")
+                .then()
+                .log().all()
+                .statusCode(400)
+                .extract()
+                .body()
+                .jsonPath()
+                .getString("error");
+
+        System.out.println(error);
+
+        Assert.assertNotNull(
+                error,
+                "Ошибка неверной авторизации, не было получено сообщение об ошибке, хотя не был введен пароль"
+        );
     }
 }
