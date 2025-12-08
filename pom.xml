@@ -17,6 +17,7 @@
         <testng.version>6.14.3</testng.version>
         <restassured.version>3.1.1</restassured.version>
         <jackson.version>2.9.7</jackson.version>
+        <jsoup.version>1.17.2</jsoup.version>
     </properties>
 
     <dependencies>
@@ -45,6 +46,12 @@
             <groupId>io.qameta.allure</groupId>
             <artifactId>allure-testng</artifactId>
             <version>${allure.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>${jsoup.version}</version>
         </dependency>
 
     </dependencies>

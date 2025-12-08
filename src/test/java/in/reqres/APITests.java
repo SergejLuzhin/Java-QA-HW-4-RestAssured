@@ -1,21 +1,23 @@
 package in.reqres;
 
-import groovy.json.JsonOutput;
+import data.*;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.parser.Parser;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static io.restassured.RestAssured.given;
-import static io.restassured.RestAssured.requestSpecification;
-import static org.hamcrest.Matchers.*;
 import static specifications.Specification.requestSpecification;
 
 public class APITests {
 
     @Test
     public void testUniqueNames() {
-        List<String> firstNames =
+        UserPagesDTO userPages =
                 given()
                         .spec(requestSpecification())
                         .when()
@@ -24,19 +26,22 @@ public class APITests {
                         .log().all()
                         .statusCode(200)
                         .extract()
-                        .body()
-                        .jsonPath()
-                        .getList("data.first_name", String.class);
+                        .body().as(UserPagesDTO.class);
 
-        Set<String> uniqueNames = new HashSet<>(firstNames);
+        List<String> fullNames = userPages.getData().stream()
+                        .map(user -> user.getFirstName() + " " + user.getLastName())
+                        .collect(Collectors.toList());
 
-        System.out.println("\n---------------------\n");
-        System.out.println(firstNames);
+        List<String> notUniqueFullNames = fullNames.stream()
+                        .collect(Collectors.groupingBy(fullName -> fullName, Collectors.counting()))
+                        .entrySet().stream()
+                        .filter(entry -> entry.getValue() > 1)
+                        .map(Map.Entry::getKey)
+                        .collect(Collectors.toList());
 
-        Assert.assertEquals(
-                firstNames.size(),
-                uniqueNames.size(),
-                "В ответе есть повторяющиеся first_name: " + firstNames
+        Assert.assertTrue(
+                notUniqueFullNames.isEmpty(),
+                "В ответе есть повторяющиеся имена пользователей: " + notUniqueFullNames
         );
     }
 
@@ -46,7 +51,7 @@ public class APITests {
         requestData.put( "email", "eve.holt@reqres.in");
         requestData.put("password" , "cityslicka");
 
-        String token = given()
+        LoginMessageDTO loginMessage = given()
                 .spec(requestSpecification())
                 .body(requestData)
                 .when()
@@ -54,16 +59,13 @@ public class APITests {
                 .then()
                 .log().all()
                 .statusCode(200)
-                .extract()
-                .body()
-                .jsonPath()
-                .getString("token");
-
-        System.out.println(token);
+                .extract().body()
+                .as(LoginMessageDTO.class);
 
         Assert.assertNotNull(
-                token,
-                "Ошибка авторизации, получен пустой токен"
+                loginMessage.getToken(),
+                "Ошибка авторизации (при этом статус код = 200), получен пустой токен. Ошибка: " + loginMessage.getError()
+                        + " Текст ошибки: " + loginMessage.getMessage()
                 );
     }
 
@@ -72,7 +74,7 @@ public class APITests {
         Map<String, String> requestData = new HashMap<>();
         requestData.put( "email", "eve.holt@reqres.in");
 
-        String error = given()
+        LoginMessageDTO loginMessage = given()
                 .spec(requestSpecification())
                 .body(requestData)
                 .when()
@@ -80,16 +82,62 @@ public class APITests {
                 .then()
                 .log().all()
                 .statusCode(400)
-                .extract()
-                .body()
-                .jsonPath()
-                .getString("error");
-
-        System.out.println(error);
+                .extract().body()
+                .as(LoginMessageDTO.class);
 
         Assert.assertNotNull(
-                error,
-                "Ошибка неверной авторизации, не было получено сообщение об ошибке, хотя не был введен пароль"
+                loginMessage.getError(),
+                "Ошибка неверной авторизации (при этом статус код = 400), не было получено сообщение об ошибке, хотя не был введен пароль"
+        );
+    }
+
+    @Test
+    public void testListResource() {
+        ResourceDTO resource = given()
+                .spec(requestSpecification())
+                .when()
+                .get("/unknown")
+                .then()
+                .log().all()
+                .statusCode(200)
+                .extract().body()
+                .as(ResourceDTO.class);
+
+        List<Integer> yearsList = resource.getData().stream()
+                .map(ColorDTO::getYear)
+                .collect(Collectors.toList());
+
+        boolean isSorted = yearsList.stream()
+                .sorted()
+                .collect(Collectors.toList())
+                .equals(yearsList);
+
+        Assert.assertTrue(isSorted, "Данные не отсортированы по годам! Полученные года: " + yearsList);
+    }
+
+    @Test
+    public void testTagsCount() {
+        String xml = given()
+                .when()
+                .get("https://gateway.autodns.com/")
+                .then()
+                .log().all()
+                .extract()
+                .asString();
+
+        Document doc = Jsoup.parse(xml, "", Parser.xmlParser());
+
+        List<String> tagNames = doc.getAllElements()
+                .stream()
+                .map(Element::tagName)
+                .filter(name -> !name.equals("#root"))
+                .collect(Collectors.toList());
+
+        Assert.assertEquals(
+                tagNames.size(),
+                15,
+                "Количество тегов в полученном ответе не равно " + 15 + ". Вместо этого было найдено "
+                        + tagNames.size() + " тегов. Список полученных тегов: " + tagNames
         );
     }
 }
