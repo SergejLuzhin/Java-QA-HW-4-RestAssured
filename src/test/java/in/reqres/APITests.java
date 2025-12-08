@@ -20,7 +20,7 @@ import static specifications.Specification.*;
 
 public class APITests {
     @Feature("Проверка эндпоинта /api/users на reqres.in")
-    @Story("Проврека уникальносить имен на заданной странице")
+    @Story("Проврека уникальности имен на заданной странице")
     @Test(dataProvider = "providerForTestUniqueNames", dataProviderClass = DataProviders.class)
     public void testUniqueNamesOnPage(int pageNumber) {
         System.out.println("Sending spec? -> " + Specification.requestSpecification());
